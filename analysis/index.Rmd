@@ -46,10 +46,10 @@ editor_options:
 * [EBPMF does not find factors?](fit_ebpmf_sla_2000.html)
 * [log transformation + EBNMF on SLA data](sla_ebmf_intercept.html)
 * [ebpmf init using liklihood expansion](ebpmf_init_likexp.html)
-* [methods fit on sla 2000 data](fit_ebpmf_sla_full_nonneg.html)
+* [methods fit on sla 2000 data](fit_ebpmf_sla_2000.html)
 * [methods fit on sla full data, filter out words in less than 5 doc](fit_ebpmf_sla_full_nonneg.html)
 * [methods fit on sla full data, filter out words in less than 3 doc](fit_ebpmf_sla_full_nonneg2.html)
-
+* [sla flash init](sla_flash_init.html)
 
 ### On pbmc3k
 
