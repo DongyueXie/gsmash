@@ -29,6 +29,7 @@ editor_options:
 
 ### Simulation 
 
+* [ebpmf log with smoothed factor](ebpmf_smooth_factor_example.Rmd)
 * [Splitting method in PMF, simple simulation example](PMF_splitting.html)
 * [Simulation based on PBMC data, 3 cell types](simulation_based_on_pbmc_3cell.html)
 * [Simulation based on PBMC data, 3 cell types, 1 init backfitting](splitting_PMF_1backfitinit.html)

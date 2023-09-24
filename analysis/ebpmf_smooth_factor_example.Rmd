@@ -1,0 +1,116 @@
+---
+title: "ebpmf_log with smooth factor, an example"
+author: "DongyueXie"
+date: "2023-09-24"
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+---
+
+## Introduction
+
+We give an example of fitting `ebpmf_log` with smoothed factor, using wavelet smoothing.
+
+## Generate some data
+
+```{r}
+set.seed(12345)
+n <- 50
+p <- 256
+K <- 3
+snr <- 1
+
+## Step 1: sample U, an orthogonal matrix
+rand_semdef_sym_mat <- crossprod(matrix(runif(n * n), n, n))
+rand_ortho_mat <- eigen(rand_semdef_sym_mat)$vector[, 1:K]
+u_1 <- rand_ortho_mat[, 1]
+u_2 <- rand_ortho_mat[, 2]
+u_3 <- rand_ortho_mat[, 3]
+
+f1 = c(rep(0,p/8), rep(1, p/4), rep(0, p/4), rep(0, p/4),rep(0,p/8))
+f2 = c(rep(0,p/8), rep(0, p/4), rep(1, p/4), rep(0, p/4),rep(0,p/8))
+f3 = c(rep(0,p/8), rep(0, p/4), rep(0, p/4), rep(1, p/4),rep(0,p/8))
+
+L = cbind(u_1,u_2,u_3)
+FF=cbind(f1,f2,f3)
+
+M = n / 3 * u_1 %*% t(f1) +
+  n / 5 * u_2 %*% t(f2) +
+  n / 6 * u_3 %*% t(f3)
+v = var(c(M))/snr
+X = M + matrix(rnorm(n*p,0,sqrt(v)),nrow=n,ncol=p)
+Y = matrix(rpois(n*p,exp(X)),nrow=n,ncol = p)
+```
+
+## Fit model with ebnm_dwt_haar
+
+We use Haar wavelet DWT for smoothing. 
+
+If the number of columns of the matrix is not a power of 2, or the var_type is 'by_col', the ELBO might not be non-decreasing.
+
+```{r}
+library(ebpmf.alpha)
+fit = ebpmf_log(Y,flash_control = list(ebnm.fn=c(ebnm::ebnm_point_normal,ebnm_dwt_haar)),var_type = 'constant')
+plot(fit$elbo_trace)
+# plot factors
+for(k in 3:fit$fit_flash$n_factors){
+  plot(fit$fit_flash$F_pm[,k],type='l')
+}
+fit$elbo
+```
+
+```{r}
+fit = ebpmf_log(Y,flash_control = list(ebnm.fn=c(ebnm::ebnm_point_normal,ebnm_dwt_haar)),var_type = 'by_row')
+plot(fit$elbo_trace)
+# plot factors
+for(k in 3:fit$fit_flash$n_factors){
+  plot(fit$fit_flash$F_pm[,k],type='l')
+}
+fit$elbo
+```
+
+```{r}
+fit = ebpmf_log(Y,flash_control = list(ebnm.fn=c(ebnm::ebnm_point_normal,ebnm_dwt_haar)),var_type = 'by_col')
+plot(fit$elbo_trace)
+# plot factors
+for(k in 3:fit$fit_flash$n_factors){
+  plot(fit$fit_flash$F_pm[,k],type='l')
+}
+fit$elbo
+```
+
+## Fit model with ebnm_ndwt
+
+We use Haar wavelet NDWT for smoothing.
+
+The ELBO might not be non-decreasing.
+
+```{r}
+fit = ebpmf_log(Y,flash_control = list(ebnm.fn=c(ebnm::ebnm_point_normal,ebnm_ndwt)),var_type = 'constant')
+plot(fit$elbo_trace)
+# plot factors
+for(k in 3:fit$fit_flash$n_factors){
+  plot(fit$fit_flash$F_pm[,k],type='l')
+}
+fit$elbo
+```
+
+```{r}
+fit = ebpmf_log(Y,flash_control = list(ebnm.fn=c(ebnm::ebnm_point_normal,ebnm_ndwt)),var_type = 'by_row')
+plot(fit$elbo_trace)
+# plot factors
+for(k in 3:fit$fit_flash$n_factors){
+  plot(fit$fit_flash$F_pm[,k],type='l')
+}
+fit$elbo
+```
+
+```{r}
+fit = ebpmf_log(Y,flash_control = list(ebnm.fn=c(ebnm::ebnm_point_normal,ebnm_ndwt)),var_type = 'by_col')
+plot(fit$elbo_trace)
+# plot factors
+for(k in 3:fit$fit_flash$n_factors){
+  plot(fit$fit_flash$F_pm[,k],type='l')
+}
+fit$elbo
+```
