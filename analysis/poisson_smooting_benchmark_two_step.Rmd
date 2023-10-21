@@ -1,0 +1,246 @@
+---
+title: "Poisson smoothing benchmark, add splitting two step method"
+author: "DongyueXie"
+date: "2023-10-21"
+output: workflowr::wflow_html
+editor_options:
+  chunk_output_type: console
+---
+
+## Introduction
+
+i) run the splitting approach to estimate $s^2$,g and q(mu,b) = q(mu)q(b). Discard the estimates of s, g and q(b), and focus on q(mu). In particularly let M denote the mean of the estimated q(mu). 
+
+ii) Treat M as an observed, and fit the model $M|b \sim N(b,s^2); b \sim g()$, to (re-)estimate g, s and q(b).
+
+```{r}
+library(tidyverse)
+source('code/poisson_smooth/simulation_summary_smooth.R')
+library(ggplot2)
+library(ggpubr)
+```
+
+```{r,fig.width=8,fig.height=11}
+
+snr_list = c(3)
+count_size_list = c(5,10,100)
+smooth_func_list = c('sblocks','cblocks','heavi','angles','bursts','spike')
+
+
+for(snr in snr_list){
+  for (count_size in count_size_list) {
+    print(paste("max-mean-count-size=",count_size,sep=''))
+    pch = 1:11
+    col = 1:11
+    # if(count_size==100){
+    #   rm_method = c('smash','vst','vst_hetero')
+    # }else{
+    #   rm_method = c('vst','vst_hetero')
+    # }
+    # pdf(file = paste("/home/dyxie/Rpackages/gsmash/output/plots/smooth_n_1024_snr_",snr,"_count_size_",count_size,".pdf",sep=''),   # The directory you want to save the file in
+    # width = 9.1, # The width of the plot in inches
+    # height = 11.43) # The height of the plot in inches
+
+    # par(mfrow=c(3,2))
+    plotlist = list()
+    for(smooth_func in smooth_func_list){
+      file_path = paste("/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/",smooth_func,"30_n_1024_snr_",snr,"_count_size_",count_size,".rds",sep='')
+      out = readRDS(file_path)
+      if(smooth_func=='sblocks'){
+        function_name = 'simple blocks'
+      }else if(smooth_func=='cblocks'){
+        function_name = 'clipped blocks'
+      }else{
+        function_name = smooth_func
+      }
+      
+      res = c()
+      for(i in 1:length(out$output)){
+        res = rbind(res,out$output[[i]]$mse_smooth)
+      }
+      res = sqrt(res)
+    
+      res_time = c()
+      for(i in 1:length(out$output)){
+        res_time = rbind(res_time,out$output[[i]]$run_times)
+      }
+    
+      methods = colnames(res)
+      # if(!is.null(rm_method)){
+      #   idx = match(rm_method,methods)
+      #   res = res[,-idx]
+      #   res_time = res_time[,-idx]
+      #   methods = methods[-idx]
+      #   pch = pch[-idx]
+      #   col=col[-idx]
+      # }
+      n_methods = length(methods)
+    
+      res_mean = colMeans(res,na.rm=T)
+      res_time_mean = colMeans(res_time,na.rm=T)
+      
+      #methods[methods=='smash_two_step'] = 'two_step'
+      methods[methods=='smash_two_step_hetero'] = 'two_step_hetero'
+    
+      # plot(log2(res_time_mean),res_mean,xlab='run time(log2, seconds)',ylab='RMSE',pch = 1:n_methods,col=1:n_methods, main=function_name)
+      # if(smooth_func=='sblocks'){
+      #   legend('topright',methods,pch=pch,col=col)
+      # }
+      
+      p1 = ggplot() +
+     geom_point(data = data.frame(log2_res_time_mean = log2(res_time_mean), res_mean = res_mean, methods = methods),
+                aes(x = log2_res_time_mean, y = res_mean, color = methods, shape = methods),
+                size = 4, alpha = 0.7, stroke = 1.5) +
+     labs(x = "run time (log2, seconds)", y = "RMSE", title = function_name) +
+     scale_color_manual(values = 1:length(methods)) +
+     scale_shape_manual(values = 1:length(methods))
+      
+      plotlist = c(plotlist, list(p1))
+      
+      
+    }
+    p2 = ggarrange(plotlist=plotlist,common.legend = T,legend="bottom",nrow=3,ncol=2)
+    file_name = paste("/home/dyxie/Rpackages/gsmash/output/plots/smooth_n_1024_snr_",snr,"_count_size_",count_size,"split_2step.pdf",sep='')
+    ggsave(file_name,plot = p2,width=8,height =11,units = 'in')
+    print(p2)
+    #dev.off()
+  }
+}
+```
+
+
+## save plots, fitted curve
+
+```{r}
+plot_all_curves = function(out,method,method_name_for_plot=NULL,add_legend = TRUE,legend_pos = 'topright'){
+  #x_median = apply(out$sim_data$X,2,median)
+  #plot(x_median,col='grey80',xlab='',ylab='x(median of all runs)',main=method,ylim=range(out$sim_data$X))
+
+  if(is.null(method_name_for_plot)){
+    method_name_for_plot = method
+  }
+  
+  ylim_upper = max(exp(out$sim_data$b))
+  for(i in 1:length(out$output)){
+  if(class(out$output[[i]]$fitted_model[[method]])!='try-error'){
+    ylim_upper = max(ylim_upper,max(out$output[[i]]$fitted_model[[method]]$posterior$mean_smooth))
+  }
+    }
+
+  
+  plot(exp(out$sim_data$b),xlab='',ylab='',main=method_name_for_plot,ylim = c(0,ylim_upper),type='l')
+  for(i in 1:length(out$output)){
+    if(class(out$output[[i]]$fitted_model[[method]])!='try-error'){
+      lines(out$output[[i]]$fitted_model[[method]]$posterior$mean_smooth,col='grey80')
+    }
+  }
+  lines(exp(out$sim_data$b))
+
+
+  res = c()
+  for(i in 1:length(out$output)){
+    res = rbind(res,out$output[[i]]$mse_smooth)
+  }
+  methods = colnames(res)
+  res0 = res[,match(method,methods)]
+  lines(out$output[[which.min(res0)]]$fitted_model[[method]]$posterior$mean_smooth,col=2,lwd=1.5)
+  lines(out$output[[which.max(res0)]]$fitted_model[[method]]$posterior$mean_smooth,col=4,lwd=1.5)
+  if(add_legend){
+    legend(legend_pos,c('True mean','best fit','worst fit','all others'),lty=c(1,1,1,1),col=c(1,2,4,'grey80'))
+  }
+  
+
+}
+```
+
+### max-mean-count-size = 5
+
+```{r,fig.width=11.7,fig.height=8.3}
+snr = 3
+count_size = 5
+methods = c('lik_exp','split_vga_ndwt', "split_2_step_ndwt",'smash_two_step_hetero')
+method_names = list(lik_exp='likelihood expansion',split_vga_ndwt='splitting',smash_two_step_hetero = 'two-step procedure',split_2_step_ndwt="splitting two-step method")
+for(smooth_func in smooth_func_list){
+
+  #pdf(file = paste("/home/dyxie/Rpackages/gsmash/output/plots/smooth_",smooth_func,"_n_1024_snr_",snr,"_count_size_",count_size,"2step.pdf",sep=''),
+  #  width = 11.7, # The width of the plot in inches
+  #  height = 8.3) # The height of the plot in inches
+  par(mfrow=c(2,2))
+  file_path = paste("/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/",smooth_func,"30_n_1024_snr_",snr,"_count_size_",count_size,".rds",sep='')
+  out = readRDS(file_path)
+  for(i in 1:length(methods)){
+    method = methods[i]
+    if(i>1){
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = F)
+    }else{
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = ifelse(smooth_func=='cblocks',F,T))
+    }
+
+  }
+  #dev.off()
+}
+
+
+```
+
+### max-mean-count-size = 10
+
+```{r,fig.width=11.7,fig.height=8.3}
+snr = 3
+count_size = 10
+methods = c('lik_exp','split_vga_ndwt', "split_2_step_ndwt",'smash_two_step_hetero')
+method_names = list(lik_exp='likelihood expansion',split_vga_ndwt='splitting',smash_two_step_hetero = 'two-step procedure',split_2_step_ndwt="splitting two-step method")
+for(smooth_func in smooth_func_list){
+
+  #pdf(file = paste("/home/dyxie/Rpackages/gsmash/output/plots/smooth_",smooth_func,"_n_1024_snr_",snr,"_count_size_",count_size,"2step.pdf",sep=''),
+  #  width = 11.7, # The width of the plot in inches
+  #  height = 8.3) # The height of the plot in inches
+  par(mfrow=c(2,2))
+  file_path = paste("/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/",smooth_func,"30_n_1024_snr_",snr,"_count_size_",count_size,".rds",sep='')
+  out = readRDS(file_path)
+  for(i in 1:length(methods)){
+    method = methods[i]
+    if(i>1){
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = F)
+    }else{
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = ifelse(smooth_func=='cblocks',F,T))
+    }
+
+  }
+  #dev.off()
+}
+
+
+```
+
+### max-mean-count-size = 100
+
+```{r,fig.width=11.7,fig.height=8.3}
+snr = 3
+count_size = 100
+methods = c('lik_exp','split_vga_ndwt', "split_2_step_ndwt",'smash_two_step_hetero')
+method_names = list(lik_exp='likelihood expansion',split_vga_ndwt='splitting',smash_two_step_hetero = 'two-step procedure',split_2_step_ndwt="splitting two-step method")
+for(smooth_func in smooth_func_list){
+
+  #pdf(file = paste("/home/dyxie/Rpackages/gsmash/output/plots/smooth_",smooth_func,"_n_1024_snr_",snr,"_count_size_",count_size,"2step.pdf",sep=''),
+  #  width = 11.7, # The width of the plot in inches
+  #  height = 8.3) # The height of the plot in inches
+  par(mfrow=c(2,2))
+  file_path = paste("/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/",smooth_func,"30_n_1024_snr_",snr,"_count_size_",count_size,".rds",sep='')
+  out = readRDS(file_path)
+  for(i in 1:length(methods)){
+    method = methods[i]
+    if(i>1){
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = F)
+    }else{
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = ifelse(smooth_func=='cblocks',F,T))
+    }
+
+  }
+  #dev.off()
+}
+
+
+```
+
+
