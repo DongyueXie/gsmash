@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="DongyueXie" />
+
+<meta name="date" content="2023-10-21" />
+
+<title>Poisson smoothing benchmark, add splitting two step method</title>
+
+<script src="site_libs/header-attrs-2.9/header-attrs.js"></script>
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/journal.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<style>h1 {font-size: 34px;}
+       h1.title {font-size: 38px;}
+       h2 {font-size: 30px;}
+       h3 {font-size: 24px;}
+       h4 {font-size: 18px;}
+       h5 {font-size: 16px;}
+       h6 {font-size: 12px;}
+       code {color: inherit; background-color: rgba(0, 0, 0, 0.04);}
+       pre:not([class]) { background-color: white }</style>
+<script src="site_libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="site_libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="site_libs/tocify-1.9.1/jquery.tocify.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/textmate.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/font-awesome-5.1.0/css/all.css" rel="stylesheet" />
+<link href="site_libs/font-awesome-5.1.0/css/v4-shims.css" rel="stylesheet" />
+
+<link rel="icon" href="https://github.com/workflowr/workflowr-assets/raw/master/img/reproducible.png">
+<!-- Add a small amount of space between sections. -->
+<style type="text/css">
+div.section {
+  padding-top: 12px;
+}
+</style>
+
+
+
+<style type="text/css">
+  code{white-space: pre-wrap;}
+  span.smallcaps{font-variant: small-caps;}
+  span.underline{text-decoration: underline;}
+  div.column{display: inline-block; vertical-align: top; width: 50%;}
+  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  ul.task-list{list-style: none;}
+    </style>
+
+<style type="text/css">code{white-space: pre;}</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+pre code {
+  padding: 0;
+}
+</style>
+
+
+<style type="text/css">
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #adb5bd;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script type="text/javascript">
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.tab('show');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+
+  // Navbar adjustments
+  var navHeight = $(".navbar").first().height() + 15;
+  var style = document.createElement('style');
+  var pt = "padding-top: " + navHeight + "px; ";
+  var mt = "margin-top: -" + navHeight + "px; ";
+  var css = "";
+  // offset scroll position for anchor links (for fixed navbar)
+  for (var i = 1; i <= 6; i++) {
+    css += ".section h" + i + "{ " + pt + mt + "}\n";
+  }
+  style.innerHTML = "body {" + pt + "padding-bottom: 40px; }\n" + css;
+  document.head.appendChild(style);
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+  background-color: transparent;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+<style type="text/css">
+
+#TOC {
+  margin: 25px 0px 20px 0px;
+}
+@media (max-width: 768px) {
+#TOC {
+  position: relative;
+  width: 100%;
+}
+}
+
+@media print {
+.toc-content {
+  /* see https://github.com/w3c/csswg-drafts/issues/4434 */
+  float: right;
+}
+}
+
+.toc-content {
+  padding-left: 30px;
+  padding-right: 40px;
+}
+
+div.main-container {
+  max-width: 1200px;
+}
+
+div.tocify {
+  width: 20%;
+  max-width: 260px;
+  max-height: 85%;
+}
+
+@media (min-width: 768px) and (max-width: 991px) {
+  div.tocify {
+    width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+.tocify ul, .tocify li {
+  line-height: 20px;
+}
+
+.tocify-subheader .tocify-item {
+  font-size: 0.90em;
+}
+
+.tocify .list-group-item {
+  border-radius: 0px;
+}
+
+
+</style>
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+<!-- setup 3col/9col grid for toc_float and main content  -->
+<div class="row">
+<div class="col-xs-12 col-sm-4 col-md-3">
+<div id="TOC" class="tocify">
+</div>
+</div>
+
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">gsmash</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="index.html">Home</a>
+</li>
+<li>
+  <a href="about.html">About</a>
+</li>
+<li>
+  <a href="license.html">License</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        <li>
+  <a href="https://github.com/DongyueXie/gsmash">
+    <span class="fab fa-github"></span>
+     
+    Source code
+  </a>
+</li>
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div id="header">
+
+
+
+<h1 class="title toc-ignore">Poisson smoothing benchmark, add splitting
+two step method</h1>
+<h4 class="author">DongyueXie</h4>
+<h4 class="date">2023-10-21</h4>
+
+</div>
+
+
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-report" data-toggle="collapse" data-target="#workflowr-report">
+<span class="glyphicon glyphicon-list" aria-hidden="true"></span>
+workflowr <span class="glyphicon glyphicon-exclamation-sign text-danger"
+aria-hidden="true"></span>
+</button>
+</p>
+<div id="workflowr-report" class="collapse">
+<ul class="nav nav-tabs">
+<li class="active">
+<a data-toggle="tab" href="#summary">Summary</a>
+</li>
+<li>
+<a data-toggle="tab" href="#checks"> Checks <span
+class="glyphicon glyphicon-exclamation-sign text-danger"
+aria-hidden="true"></span> </a>
+</li>
+<li>
+<a data-toggle="tab" href="#versions">Past versions</a>
+</li>
+</ul>
+<div class="tab-content">
+<div id="summary" class="tab-pane fade in active">
+<p>
+<strong>Last updated:</strong> 2023-10-21
+</p>
+<p>
+<strong>Checks:</strong> <span
+class="glyphicon glyphicon-ok text-success" aria-hidden="true"></span> 6
+<span class="glyphicon glyphicon-exclamation-sign text-danger"
+aria-hidden="true"></span> 1
+</p>
+<p>
+<strong>Knit directory:</strong> <code>gsmash/</code> <span
+class="glyphicon glyphicon-question-sign" aria-hidden="true"
+title="This is the local directory in which the code in this file was executed.">
+</span>
+</p>
+<p>
+This reproducible <a href="http://rmarkdown.rstudio.com">R Markdown</a>
+analysis was created with <a
+  href="https://github.com/jdblischak/workflowr">workflowr</a> (version
+1.6.2). The <em>Checks</em> tab describes the reproducibility checks
+that were applied when the results were created. The <em>Past
+versions</em> tab lists the development history.
+</p>
+<hr>
+</div>
+<div id="checks" class="tab-pane fade">
+<div id="workflowr-checks" class="panel-group">
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRMarkdownfilestronguptodate">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>R Markdown file:</strong> up-to-date
+</a>
+</p>
+</div>
+<div id="strongRMarkdownfilestronguptodate"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great! Since the R Markdown file has been committed to the Git
+repository, you know the exact version of the code that produced these
+results.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongEnvironmentstrongempty">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Environment:</strong> empty </a>
+</p>
+</div>
+<div id="strongEnvironmentstrongempty" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! The global environment was empty. Objects defined in the
+global environment can affect the analysis in your R Markdown file in
+unknown ways. For reproduciblity it’s best to always run the code in an
+empty environment.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSeedstrongcodesetseed20220606code">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Seed:</strong>
+<code>set.seed(20220606)</code> </a>
+</p>
+</div>
+<div id="strongSeedstrongcodesetseed20220606code"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>The command <code>set.seed(20220606)</code> was run prior to running
+the code in the R Markdown file. Setting a seed ensures that any results
+that rely on randomness, e.g. subsampling or permutations, are
+reproducible.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongSessioninformationstrongrecorded">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Session information:</strong>
+recorded </a>
+</p>
+</div>
+<div id="strongSessioninformationstrongrecorded"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>Great job! Recording the operating system, R version, and package
+versions is critical for reproducibility.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongCachestrongnone">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Cache:</strong> none </a>
+</p>
+</div>
+<div id="strongCachestrongnone" class="panel-collapse collapse">
+<div class="panel-body">
+<p>Nice! There were no cached chunks for this analysis, so you can be
+confident that you successfully produced the results during this
+run.</p>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongFilepathsstrongabsolute">
+<span class="glyphicon glyphicon-exclamation-sign text-danger"
+aria-hidden="true"></span> <strong>File paths:</strong> absolute </a>
+</p>
+</div>
+<div id="strongFilepathsstrongabsolute" class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Using absolute paths to the files within your workflowr project makes it
+difficult for you and others to run your code on a different machine.
+Change the absolute path(s) below to the suggested relative path(s) to
+make your code more reproducible.
+</p>
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th style="text-align:left;">
+absolute
+</th>
+<th style="text-align:left;">
+relative
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+/home/dyxie/Rpackages/gsmash/output/plots/smooth_n_1024_snr_
+</td>
+<td style="text-align:left;">
+output/plots/smooth_n_1024_snr_
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+/home/dyxie/Rpackages/gsmash/output/plots/smooth_
+</td>
+<td style="text-align:left;">
+output/plots/smooth_
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div class="panel panel-default">
+<div class="panel-heading">
+<p class="panel-title">
+<a data-toggle="collapse" data-parent="#workflowr-checks" href="#strongRepositoryversionstrongahrefhttpsgithubcomDongyueXiegsmashtree0426d93235a023bab33a89a0d2d6a13e285238cftargetblank0426d93a">
+<span class="glyphicon glyphicon-ok text-success"
+aria-hidden="true"></span> <strong>Repository version:</strong>
+<a href="https://github.com/DongyueXie/gsmash/tree/0426d93235a023bab33a89a0d2d6a13e285238cf" target="_blank">0426d93</a>
+</a>
+</p>
+</div>
+<div
+id="strongRepositoryversionstrongahrefhttpsgithubcomDongyueXiegsmashtree0426d93235a023bab33a89a0d2d6a13e285238cftargetblank0426d93a"
+class="panel-collapse collapse">
+<div class="panel-body">
+<p>
+Great! You are using Git for version control. Tracking code development
+and connecting the code version to the results is critical for
+reproducibility.
+</p>
+<p>
+The results in this page were generated with repository version
+<a href="https://github.com/DongyueXie/gsmash/tree/0426d93235a023bab33a89a0d2d6a13e285238cf" target="_blank">0426d93</a>.
+See the <em>Past versions</em> tab to see a history of the changes made
+to the R Markdown and HTML files.
+</p>
+<p>
+Note that you need to be careful to ensure that all relevant files for
+the analysis have been committed to Git prior to generating the results
+(you can use <code>wflow_publish</code> or
+<code>wflow_git_commit</code>). workflowr only checks the R Markdown
+file, but you know if there are other scripts or data files that it
+depends on. Below is the status of the Git repository when the results
+were generated:
+</p>
+<pre><code>
+Ignored files:
+    Ignored:    .Rhistory
+    Ignored:    .Rproj.user/
+
+Untracked files:
+    Untracked:  analysis/GO_ORA_montoro.Rmd
+    Untracked:  analysis/GO_ORA_pbmc_purified.Rmd
+    Untracked:  analysis/fit_ebpmf_sla_2000.Rmd
+    Untracked:  analysis/sla_Kmax_elbo.Rmd
+    Untracked:  chipexo_rep1_reverse.rds
+    Untracked:  data/Citation.RData
+    Untracked:  data/SLA/
+    Untracked:  data/abstract.txt
+    Untracked:  data/abstract.vocab.txt
+    Untracked:  data/ap.txt
+    Untracked:  data/ap.vocab.txt
+    Untracked:  data/sla_2000.rds
+    Untracked:  data/sla_full.rds
+    Untracked:  data/text.R
+    Untracked:  data/tpm3.rds
+    Untracked:  output/driving_gene_pbmc.rds
+    Untracked:  output/pbmc_gsea.rds
+    Untracked:  output/plots/
+    Untracked:  output/tpm3_fit_fasttopics.rds
+    Untracked:  output/tpm3_fit_stm.rds
+    Untracked:  output/tpm3_fit_stm_slow.rds
+    Untracked:  sla.rds
+
+Unstaged changes:
+    Modified:   analysis/PMF_splitting.Rmd
+    Modified:   analysis/fit_ebpmf_sla.Rmd
+    Modified:   code/eb_spline.R
+    Modified:   code/poisson_STM/structure_plot.R
+    Modified:   code/poisson_mean/pois_log_normal_mle.R
+    Modified:   code/poisson_smooth/simu_study_poisson_smooth.R
+
+</code></pre>
+<p>
+Note that any generated files, e.g. HTML, png, CSS, etc., are not
+included in this status report because it is ok for generated content to
+have uncommitted changes.
+</p>
+</div>
+</div>
+</div>
+</div>
+<hr>
+</div>
+<div id="versions" class="tab-pane fade">
+
+<p>
+These are the previous versions of the repository in which changes were
+made to the R Markdown
+(<code>analysis/poisson_smooting_benchmark_two_step.Rmd</code>) and HTML
+(<code>docs/poisson_smooting_benchmark_two_step.html</code>) files. If
+you’ve configured a remote Git repository (see
+<code>?wflow_git_remote</code>), click on the hyperlinks in the table
+below to view the files as they were in that past version.
+</p>
+<div class="table-responsive">
+<table class="table table-condensed table-hover">
+<thead>
+<tr>
+<th>
+File
+</th>
+<th>
+Version
+</th>
+<th>
+Author
+</th>
+<th>
+Date
+</th>
+<th>
+Message
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>
+Rmd
+</td>
+<td>
+<a href="https://github.com/DongyueXie/gsmash/blob/0426d93235a023bab33a89a0d2d6a13e285238cf/analysis/poisson_smooting_benchmark_two_step.Rmd" target="_blank">0426d93</a>
+</td>
+<td>
+DongyueXie
+</td>
+<td>
+2023-10-21
+</td>
+<td>
+wflow_publish("analysis/poisson_smooting_benchmark_two_step.Rmd")
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr>
+</div>
+</div>
+</div>
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<ol style="list-style-type: lower-roman">
+<li><p>run the splitting approach to estimate <span
+class="math inline">\(s^2\)</span>,g and q(mu,b) = q(mu)q(b). Discard
+the estimates of s, g and q(b), and focus on q(mu). In particularly let
+M denote the mean of the estimated q(mu).</p></li>
+<li><p>Treat M as an observed, and fit the model <span
+class="math inline">\(M|b \sim N(b,s^2); b \sim g()\)</span>, to
+(re-)estimate g, s and q(b).</p></li>
+</ol>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──</code></pre>
+<pre><code>✔ ggplot2 3.4.1     ✔ purrr   1.0.1
+✔ tibble  3.2.1     ✔ dplyr   1.1.0
+✔ tidyr   1.3.0     ✔ stringr 1.5.0
+✔ readr   1.4.0     ✔ forcats 0.5.1</code></pre>
+<pre><code>── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+✖ dplyr::filter() masks stats::filter()
+✖ dplyr::lag()    masks stats::lag()</code></pre>
+<pre class="r"><code>source(&#39;code/poisson_smooth/simulation_summary_smooth.R&#39;)
+library(ggplot2)
+library(ggpubr)</code></pre>
+<pre class="r"><code>snr_list = c(3)
+count_size_list = c(5,10,100)
+smooth_func_list = c(&#39;sblocks&#39;,&#39;cblocks&#39;,&#39;heavi&#39;,&#39;angles&#39;,&#39;bursts&#39;,&#39;spike&#39;)
+
+
+for(snr in snr_list){
+  for (count_size in count_size_list) {
+    print(paste(&quot;max-mean-count-size=&quot;,count_size,sep=&#39;&#39;))
+    pch = 1:11
+    col = 1:11
+    # if(count_size==100){
+    #   rm_method = c(&#39;smash&#39;,&#39;vst&#39;,&#39;vst_hetero&#39;)
+    # }else{
+    #   rm_method = c(&#39;vst&#39;,&#39;vst_hetero&#39;)
+    # }
+    # pdf(file = paste(&quot;/home/dyxie/Rpackages/gsmash/output/plots/smooth_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;.pdf&quot;,sep=&#39;&#39;),   # The directory you want to save the file in
+    # width = 9.1, # The width of the plot in inches
+    # height = 11.43) # The height of the plot in inches
+
+    # par(mfrow=c(3,2))
+    plotlist = list()
+    for(smooth_func in smooth_func_list){
+      file_path = paste(&quot;/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/&quot;,smooth_func,&quot;30_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;.rds&quot;,sep=&#39;&#39;)
+      out = readRDS(file_path)
+      if(smooth_func==&#39;sblocks&#39;){
+        function_name = &#39;simple blocks&#39;
+      }else if(smooth_func==&#39;cblocks&#39;){
+        function_name = &#39;clipped blocks&#39;
+      }else{
+        function_name = smooth_func
+      }
+      
+      res = c()
+      for(i in 1:length(out$output)){
+        res = rbind(res,out$output[[i]]$mse_smooth)
+      }
+      res = sqrt(res)
+    
+      res_time = c()
+      for(i in 1:length(out$output)){
+        res_time = rbind(res_time,out$output[[i]]$run_times)
+      }
+    
+      methods = colnames(res)
+      # if(!is.null(rm_method)){
+      #   idx = match(rm_method,methods)
+      #   res = res[,-idx]
+      #   res_time = res_time[,-idx]
+      #   methods = methods[-idx]
+      #   pch = pch[-idx]
+      #   col=col[-idx]
+      # }
+      n_methods = length(methods)
+    
+      res_mean = colMeans(res,na.rm=T)
+      res_time_mean = colMeans(res_time,na.rm=T)
+      
+      #methods[methods==&#39;smash_two_step&#39;] = &#39;two_step&#39;
+      methods[methods==&#39;smash_two_step_hetero&#39;] = &#39;two_step_hetero&#39;
+    
+      # plot(log2(res_time_mean),res_mean,xlab=&#39;run time(log2, seconds)&#39;,ylab=&#39;RMSE&#39;,pch = 1:n_methods,col=1:n_methods, main=function_name)
+      # if(smooth_func==&#39;sblocks&#39;){
+      #   legend(&#39;topright&#39;,methods,pch=pch,col=col)
+      # }
+      
+      p1 = ggplot() +
+     geom_point(data = data.frame(log2_res_time_mean = log2(res_time_mean), res_mean = res_mean, methods = methods),
+                aes(x = log2_res_time_mean, y = res_mean, color = methods, shape = methods),
+                size = 4, alpha = 0.7, stroke = 1.5) +
+     labs(x = &quot;run time (log2, seconds)&quot;, y = &quot;RMSE&quot;, title = function_name) +
+     scale_color_manual(values = 1:length(methods)) +
+     scale_shape_manual(values = 1:length(methods))
+      
+      plotlist = c(plotlist, list(p1))
+      
+      
+    }
+    p2 = ggarrange(plotlist=plotlist,common.legend = T,legend=&quot;bottom&quot;,nrow=3,ncol=2)
+    file_name = paste(&quot;/home/dyxie/Rpackages/gsmash/output/plots/smooth_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;split_2step.pdf&quot;,sep=&#39;&#39;)
+    ggsave(file_name,plot = p2,width=8,height =11,units = &#39;in&#39;)
+    print(p2)
+    #dev.off()
+  }
+}</code></pre>
+<pre><code>[1] &quot;max-mean-count-size=5&quot;</code></pre>
+<pre><code>[1] &quot;max-mean-count-size=10&quot;</code></pre>
+<p><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-2-1.png" width="768" style="display: block; margin: auto;" /></p>
+<pre><code>[1] &quot;max-mean-count-size=100&quot;</code></pre>
+<p><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-2-2.png" width="768" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-2-3.png" width="768" style="display: block; margin: auto;" /></p>
+</div>
+<div id="save-plots-fitted-curve" class="section level2">
+<h2>save plots, fitted curve</h2>
+<pre class="r"><code>plot_all_curves = function(out,method,method_name_for_plot=NULL,add_legend = TRUE,legend_pos = &#39;topright&#39;){
+  #x_median = apply(out$sim_data$X,2,median)
+  #plot(x_median,col=&#39;grey80&#39;,xlab=&#39;&#39;,ylab=&#39;x(median of all runs)&#39;,main=method,ylim=range(out$sim_data$X))
+
+  if(is.null(method_name_for_plot)){
+    method_name_for_plot = method
+  }
+  
+  ylim_upper = max(exp(out$sim_data$b))
+  for(i in 1:length(out$output)){
+  if(class(out$output[[i]]$fitted_model[[method]])!=&#39;try-error&#39;){
+    ylim_upper = max(ylim_upper,max(out$output[[i]]$fitted_model[[method]]$posterior$mean_smooth))
+  }
+    }
+
+  
+  plot(exp(out$sim_data$b),xlab=&#39;&#39;,ylab=&#39;&#39;,main=method_name_for_plot,ylim = c(0,ylim_upper),type=&#39;l&#39;)
+  for(i in 1:length(out$output)){
+    if(class(out$output[[i]]$fitted_model[[method]])!=&#39;try-error&#39;){
+      lines(out$output[[i]]$fitted_model[[method]]$posterior$mean_smooth,col=&#39;grey80&#39;)
+    }
+  }
+  lines(exp(out$sim_data$b))
+
+
+  res = c()
+  for(i in 1:length(out$output)){
+    res = rbind(res,out$output[[i]]$mse_smooth)
+  }
+  methods = colnames(res)
+  res0 = res[,match(method,methods)]
+  lines(out$output[[which.min(res0)]]$fitted_model[[method]]$posterior$mean_smooth,col=2,lwd=1.5)
+  lines(out$output[[which.max(res0)]]$fitted_model[[method]]$posterior$mean_smooth,col=4,lwd=1.5)
+  if(add_legend){
+    legend(legend_pos,c(&#39;True mean&#39;,&#39;best fit&#39;,&#39;worst fit&#39;,&#39;all others&#39;),lty=c(1,1,1,1),col=c(1,2,4,&#39;grey80&#39;))
+  }
+  
+
+}</code></pre>
+<div id="max-mean-count-size-5" class="section level3">
+<h3>max-mean-count-size = 5</h3>
+<pre class="r"><code>snr = 3
+count_size = 5
+methods = c(&#39;lik_exp&#39;,&#39;split_vga_ndwt&#39;, &quot;split_2_step_ndwt&quot;,&#39;smash_two_step_hetero&#39;)
+method_names = list(lik_exp=&#39;likelihood expansion&#39;,split_vga_ndwt=&#39;splitting&#39;,smash_two_step_hetero = &#39;two-step procedure&#39;,split_2_step_ndwt=&quot;splitting two-step method&quot;)
+for(smooth_func in smooth_func_list){
+
+  #pdf(file = paste(&quot;/home/dyxie/Rpackages/gsmash/output/plots/smooth_&quot;,smooth_func,&quot;_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;2step.pdf&quot;,sep=&#39;&#39;),
+  #  width = 11.7, # The width of the plot in inches
+  #  height = 8.3) # The height of the plot in inches
+  par(mfrow=c(2,2))
+  file_path = paste(&quot;/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/&quot;,smooth_func,&quot;30_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;.rds&quot;,sep=&#39;&#39;)
+  out = readRDS(file_path)
+  for(i in 1:length(methods)){
+    method = methods[i]
+    if(i&gt;1){
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = F)
+    }else{
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = ifelse(smooth_func==&#39;cblocks&#39;,F,T))
+    }
+
+  }
+  #dev.off()
+}</code></pre>
+<p><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-4-1.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-4-2.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-4-3.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-4-4.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-4-5.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-4-6.png" width="1123.2" style="display: block; margin: auto;" /></p>
+</div>
+<div id="max-mean-count-size-10" class="section level3">
+<h3>max-mean-count-size = 10</h3>
+<pre class="r"><code>snr = 3
+count_size = 10
+methods = c(&#39;lik_exp&#39;,&#39;split_vga_ndwt&#39;, &quot;split_2_step_ndwt&quot;,&#39;smash_two_step_hetero&#39;)
+method_names = list(lik_exp=&#39;likelihood expansion&#39;,split_vga_ndwt=&#39;splitting&#39;,smash_two_step_hetero = &#39;two-step procedure&#39;,split_2_step_ndwt=&quot;splitting two-step method&quot;)
+for(smooth_func in smooth_func_list){
+
+  #pdf(file = paste(&quot;/home/dyxie/Rpackages/gsmash/output/plots/smooth_&quot;,smooth_func,&quot;_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;2step.pdf&quot;,sep=&#39;&#39;),
+  #  width = 11.7, # The width of the plot in inches
+  #  height = 8.3) # The height of the plot in inches
+  par(mfrow=c(2,2))
+  file_path = paste(&quot;/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/&quot;,smooth_func,&quot;30_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;.rds&quot;,sep=&#39;&#39;)
+  out = readRDS(file_path)
+  for(i in 1:length(methods)){
+    method = methods[i]
+    if(i&gt;1){
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = F)
+    }else{
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = ifelse(smooth_func==&#39;cblocks&#39;,F,T))
+    }
+
+  }
+  #dev.off()
+}</code></pre>
+<p><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-5-1.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-5-2.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-5-3.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-5-4.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-5-5.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-5-6.png" width="1123.2" style="display: block; margin: auto;" /></p>
+</div>
+<div id="max-mean-count-size-100" class="section level3">
+<h3>max-mean-count-size = 100</h3>
+<pre class="r"><code>snr = 3
+count_size = 100
+methods = c(&#39;lik_exp&#39;,&#39;split_vga_ndwt&#39;, &quot;split_2_step_ndwt&quot;,&#39;smash_two_step_hetero&#39;)
+method_names = list(lik_exp=&#39;likelihood expansion&#39;,split_vga_ndwt=&#39;splitting&#39;,smash_two_step_hetero = &#39;two-step procedure&#39;,split_2_step_ndwt=&quot;splitting two-step method&quot;)
+for(smooth_func in smooth_func_list){
+
+  #pdf(file = paste(&quot;/home/dyxie/Rpackages/gsmash/output/plots/smooth_&quot;,smooth_func,&quot;_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;2step.pdf&quot;,sep=&#39;&#39;),
+  #  width = 11.7, # The width of the plot in inches
+  #  height = 8.3) # The height of the plot in inches
+  par(mfrow=c(2,2))
+  file_path = paste(&quot;/project2/mstephens/dongyue/poisson_smooth/simu_2023/results_2step/&quot;,smooth_func,&quot;30_n_1024_snr_&quot;,snr,&quot;_count_size_&quot;,count_size,&quot;.rds&quot;,sep=&#39;&#39;)
+  out = readRDS(file_path)
+  for(i in 1:length(methods)){
+    method = methods[i]
+    if(i&gt;1){
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = F)
+    }else{
+      plot_all_curves(out,method=method,method_name_for_plot = method_names[[method]],add_legend = ifelse(smooth_func==&#39;cblocks&#39;,F,T))
+    }
+
+  }
+  #dev.off()
+}</code></pre>
+<p><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-6-1.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-6-2.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-6-3.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-6-4.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-6-5.png" width="1123.2" style="display: block; margin: auto;" /><img src="figure/poisson_smooting_benchmark_two_step.Rmd/unnamed-chunk-6-6.png" width="1123.2" style="display: block; margin: auto;" /></p>
+<br>
+<p>
+<button type="button" class="btn btn-default btn-workflowr btn-workflowr-sessioninfo" data-toggle="collapse" data-target="#workflowr-sessioninfo" style="display: block;">
+<span class="glyphicon glyphicon-wrench" aria-hidden="true"></span>
+Session information
+</button>
+</p>
+<div id="workflowr-sessioninfo" class="collapse">
+<pre class="r"><code>sessionInfo()</code></pre>
+<pre><code>R version 4.1.0 (2021-05-18)
+Platform: x86_64-pc-linux-gnu (64-bit)
+Running under: CentOS Linux 7 (Core)
+
+Matrix products: default
+BLAS:   /software/R-4.1.0-no-openblas-el7-x86_64/lib64/R/lib/libRblas.so
+LAPACK: /software/R-4.1.0-no-openblas-el7-x86_64/lib64/R/lib/libRlapack.so
+
+locale:
+ [1] LC_CTYPE=en_US.UTF-8 LC_NUMERIC=C         LC_TIME=C           
+ [4] LC_COLLATE=C         LC_MONETARY=C        LC_MESSAGES=C       
+ [7] LC_PAPER=C           LC_NAME=C            LC_ADDRESS=C        
+[10] LC_TELEPHONE=C       LC_MEASUREMENT=C     LC_IDENTIFICATION=C 
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+ [1] ggpubr_0.6.0    forcats_0.5.1   stringr_1.5.0   dplyr_1.1.0    
+ [5] purrr_1.0.1     readr_1.4.0     tidyr_1.3.0     tibble_3.2.1   
+ [9] ggplot2_3.4.1   tidyverse_1.3.1 workflowr_1.6.2
+
+loaded via a namespace (and not attached):
+ [1] fs_1.5.0          lubridate_1.7.10  httr_1.4.5        rprojroot_2.0.2  
+ [5] tools_4.1.0       backports_1.2.1   bslib_0.4.2       utf8_1.2.3       
+ [9] R6_2.5.1          DBI_1.1.1         colorspace_2.1-0  withr_2.5.0      
+[13] tidyselect_1.2.0  gridExtra_2.3     curl_5.0.0        compiler_4.1.0   
+[17] git2r_0.28.0      textshaping_0.3.6 cli_3.6.1         rvest_1.0.0      
+[21] xml2_1.3.2        labeling_0.4.2    sass_0.4.0        scales_1.2.1     
+[25] systemfonts_1.0.4 digest_0.6.31     foreign_0.8-81    rmarkdown_2.9    
+[29] rio_0.5.27        pkgconfig_2.0.3   htmltools_0.5.4   dbplyr_2.1.1     
+[33] fastmap_1.1.0     highr_0.9         rlang_1.1.1       readxl_1.3.1     
+[37] rstudioapi_0.13   jquerylib_0.1.4   generics_0.1.3    farver_2.1.1     
+[41] jsonlite_1.8.4    zip_2.2.0         car_3.0-11        magrittr_2.0.3   
+[45] Rcpp_1.0.10       munsell_0.5.0     fansi_1.0.4       abind_1.4-5      
+[49] lifecycle_1.0.3   stringi_1.6.2     whisker_0.4       yaml_2.3.7       
+[53] carData_3.0-4     grid_4.1.0        promises_1.2.0.1  crayon_1.5.2     
+[57] haven_2.4.1       cowplot_1.1.1     hms_1.1.2         knitr_1.33       
+[61] pillar_1.8.1      ggsignif_0.6.2    reprex_2.0.0      glue_1.6.2       
+[65] evaluate_0.14     data.table_1.14.8 modelr_0.1.8      vctrs_0.6.2      
+[69] httpuv_1.6.1      cellranger_1.1.0  gtable_0.3.1      assertthat_0.2.1 
+[73] cachem_1.0.5      xfun_0.24         openxlsx_4.2.4    broom_0.7.8      
+[77] rstatix_0.7.2     later_1.3.0       ragg_1.2.5        ellipsis_0.3.2   </code></pre>
+</div>
+</div>
+</div>
+
+
+<!-- Adjust MathJax settings so that all math formulae are shown using
+TeX fonts only; see
+http://docs.mathjax.org/en/latest/configuration.html.  This will make
+the presentation more consistent at the cost of the webpage sometimes
+taking slightly longer to load. Note that this only works because the
+footer is added to webpages before the MathJax javascript. -->
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    "HTML-CSS": { availableFonts: ["TeX"] }
+  });
+</script>
+
+
+
+
+</div>
+</div>
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.odd').parent('tbody').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open');
+  });
+});
+</script>
+
+<!-- code folding -->
+
+<script>
+$(document).ready(function ()  {
+
+    // temporarily add toc-ignore selector to headers for the consistency with Pandoc
+    $('.unlisted.unnumbered').addClass('toc-ignore')
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
+    // establish options
+    var options = {
+      selectors: "h1,h2,h3",
+      theme: "bootstrap3",
+      context: '.toc-content',
+      hashGenerator: function (text) {
+        return text.replace(/[.\\/?&!#<>]/g, '').replace(/\s/g, '_');
+      },
+      ignoreSelector: ".toc-ignore",
+      scrollTo: 0
+    };
+    options.showAndHide = true;
+    options.smoothScroll = true;
+
+    // tocify
+    var toc = $("#TOC").tocify(options).data("toc-tocify");
+});
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
